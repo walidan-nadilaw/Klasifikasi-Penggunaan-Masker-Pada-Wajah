@@ -203,6 +203,13 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# macOS
+.DS_Store
+
+# Large local datasets
+data/raw/
+!data/README.md
+
 # Ruff stuff:
 .ruff_cache/
 
