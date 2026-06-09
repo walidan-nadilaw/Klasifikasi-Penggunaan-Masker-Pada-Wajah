@@ -1,35 +1,42 @@
 # Data Folder
 
-Folder ini disimpan untuk struktur proyek, bukan untuk menyimpan dataset mentah di Git.
+Folder ini digunakan sebagai wadah/pusat direktori data untuk eksperimen proyek. **Harap jangan menyimpan atau men-commit dataset mentah (.png/.jpg) maupun file `.npz` ke dalam repository Git.** 
 
-## Aturan kolaborasi
+## Mekanisme Loading Dataset (Baru)
 
-- Simpan dataset secara lokal di `data/raw/`
-- Jangan commit isi `data/raw/` ke repository
-- Jika lokasi dataset berbeda, set environment variable `MASK_DATA_DIR`
+Sistem loading dataset telah diperbarui untuk **tidak lagi mengharuskan download manual**. 
+Mulai dari Notebook `01_eda.ipynb`, dataset mentah diambil secara otomatis menggunakan library `kagglehub` melalui perintah:
+```python
+import kagglehub
+path = kagglehub.dataset_download("ashishjangra27/face-mask-12k-images-dataset")
+```
+`kagglehub` akan otomatis mengunduh dataset dan menaruhnya di cache lokal bawaan sistem (tidak di repository ini), namun struktur `Train/`, `Validation/`, dan `Test/` miliknya langsung terdeteksi.
 
-## Struktur yang diharapkan
+## Struktur Folder `data/` yang Dihasilkan
+
+Ketika kamu mengeksekusi urutan *notebook*, folder `data/` ini akan otomatis terisi dengan file/folder *generate* berikut:
 
 ```text
-data/raw/
-├── Train/
-│   ├── WithMask/
-│   ├── WithoutMask/
-│   └── WithMaskIncorrect/
-├── Validation/
-│   ├── WithMask/
-│   ├── WithoutMask/
-│   └── WithMaskIncorrect/
-└── Test/
-    ├── WithMask/
-    ├── WithoutMask/
-    └── WithMaskIncorrect/
+data/
+├── results/                     # Ter-generate setelah run Notebook 02_preprocesses.ipynb
+│   ├── augmented/               
+│   │   └── Train/               # Dataset Train yang telah melewati pipeline praproses & augmentasi
+│   │       ├── WithMask/
+│   │       ├── WithoutMask/
+│   │       └── MaskWornIncorrect/
+│   └── processed/               
+│       ├── Validation/          # Dataset Validation yang HANYA di-praproses (tanpa augmentasi)
+│       └── Test/                # Dataset Test yang HANYA di-praproses
+│
+└── features/                    # Ter-generate setelah run Notebook 03_featureEngineering.ipynb
+    ├── canny_aug_features.npz   # Ekstraksi fitur Canny untuk Train (Augmented)
+    ├── canny_unaug_features.npz # Ekstraksi fitur Canny untuk Train (Raw)
+    ├── dwt_aug_features.npz     # Ekstraksi fitur DWT untuk Train (Augmented)
+    └── dwt_unaug_features.npz   # Ekstraksi fitur DWT untuk Train (Raw)
 ```
 
-## Opsi path dataset
+## Aturan Kolaborasi
 
-Notebook `notebooks/01_eda.ipynb` akan mencoba dataset dari urutan berikut:
-
-1. Path pada environment variable `MASK_DATA_DIR`
-2. `data/raw/` di root repository
-3. Folder dataset lain yang punya struktur split `Train/`, `Validation/`, dan `Test/`
+- Semua folder di dalam `data/` selain `README.md` ini akan otomatis di-ignore oleh git (sesuai settingan di `.gitignore`).
+- Jika kamu me-run di Kaggle Notebook, mekanisme baca-tulis ini akan otomatis beradaptasi (`04_modelling.ipynb` akan membaca `kagglehub` jika tidak menemukan versi augmentasi lokal).
+- Tidak perlu mengubah environment variable (`MASK_DATA_DIR`) lagi. Cukup jalankan Notebook dari urutan 01 sampai 05 secara sekuensial.

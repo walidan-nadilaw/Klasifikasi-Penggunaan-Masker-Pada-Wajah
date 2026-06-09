@@ -1,0 +1,11 @@
+tensorflow==2.10.0
+scikit-learn
+opencv-python
+numpy
+matplotlib
+seaborn
+pandas
+PyWavelets
+kagglehub
+tqdm
+joblib
