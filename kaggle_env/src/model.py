@@ -21,3 +21,27 @@ def build_mobilenet_model(num_classes=2):
     model = Model(inputs=base_model.input, outputs=predictions)
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
+
+def build_cnn_model(input_shape=(224, 224, 3), num_classes=2):
+    model = tf.keras.Sequential([
+        tf.keras.layers.InputLayer(input_shape=input_shape),
+            
+        tf.keras.layers.Conv2D(32, (3,3), activation='relu'),
+        tf.keras.layers.MaxPooling2D((2,2)),
+        
+        tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
+        tf.keras.layers.MaxPooling2D((2,2)),
+        
+        tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
+        tf.keras.layers.MaxPooling2D((2,2)),
+        
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(64, activation='relu'),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(num_classes, activation='softmax')  # output: 2 class
+    ])
+    
+    model.compile(optimizer='adam',
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model

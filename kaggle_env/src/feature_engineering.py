@@ -28,9 +28,11 @@ def load_and_extract_features(root_dir, require_preprocess=False):
             img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 if require_preprocess:
-                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-                    img = clahe.apply(img)
-                    img = cv2.GaussianBlur(img, (5,5), 0)
+                    from src.preprocess import clahe_scratch, gaussian_blur_scratch, sharpen_scratch
+                    img_clahe = clahe_scratch(img)
+                    img_blur = gaussian_blur_scratch(img_clahe)
+                    img = sharpen_scratch(img_blur)
+                    # Kita tidak pakai adaptive thresholding karena bisa merusak tekstur Canny/DWT
                 
                 img_resized = cv2.resize(img, IMG_SIZE_SVM)
                 X_canny_list.append(extract_canny(img_resized))
