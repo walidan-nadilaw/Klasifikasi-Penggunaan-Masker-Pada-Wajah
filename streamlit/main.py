@@ -62,7 +62,6 @@ def load_classification_model(model_name):
         model.load_weights(str(model_path))
         return model
     else:
-        # Load model SVM pakai joblib
         import joblib
         model = joblib.load(str(model_path))
         return model
@@ -72,107 +71,74 @@ model = load_classification_model(selected_model_name)
 # Setup Face Detection
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
-# Area Input Gambar (Menggunakan Tabs untuk opsi Upload atau Webcam)
-tab1, tab2 = st.tabs(["📁 Upload File", "📸 Gunakan Webcam"])
+# Area Input Gambar
+st.subheader("📷 Sumber Gambar")
+tab1, tab2 = st.tabs(["📸 Gunakan Webcam", "📁 Upload File"])
 
 with tab1:
-    uploaded_file = st.file_uploader("Upload Gambar", type=["jpg", "jpeg", "png"])
+    camera_file = st.camera_input("Ambil Foto dari Webcam")
     
 with tab2:
-    camera_file = st.camera_input("Ambil Foto dari Webcam")
+    uploaded_file = st.file_uploader("Upload Gambar", type=["jpg", "jpeg", "png"])
 
-# Gunakan file dari webcam jika ada, jika tidak gunakan file upload
 active_file = camera_file if camera_file is not None else uploaded_file
 
-if active_fijle is not None:
-    # Membaca byte gambar menjadi array numpy
+if active_file is not None:
     file_bytes = np.asarray(bytearray(active_file.read()), dtype=np.uint8)
     img_bgr_full = cv2.imdecode(file_bytes, 1)
     
     # ----------------------------------------------------
-    # FASE 0: ENHANCEMENT FULL IMAGE (RGB) UNTUK DETEKSI
+    # FASE 0: DETEKSI WAJAH PADA GAMBAR RAW
     # ----------------------------------------------------
     st.divider()
-    st.subheader("🔍 Fase 0: Peningkatan Resolusi & Deteksi Wajah (Full Image)")
-    st.write("Mengaplikasikan fungsi *scratch* pada channel *Value* (HSV) agar warna RGB tidak rusak, demi mempermudah kerja *Face Detector*.")
+    st.subheader("🔍 Fase 0: Tracking & Deteksi Wajah")
+    st.write("Mendeteksi wajah langsung dari tangkapan kamera/upload.")
     
-    with st.spinner("Meningkatkan kualitas gambar penuh (Enhancement RGB)..."):
-        # Konversi ke HSV untuk meng-enhance kecerahannya saja (Channel V)
-        hsv_full = cv2.cvtColor(img_bgr_full, cv2.COLOR_BGR2HSV)
-        h_chan, s_chan, v_chan = cv2.split(hsv_full)
-        
-        # Aplikasikan fungsi scratch ke channel V
-        v_clahe = clahe_scratch(v_chan)
-        v_blur = gaussian_blur_scratch(v_clahe)
-        v_sharp = sharpen_scratch(v_blur)
-        
-        # Gabungkan kembali dan kembalikan ke BGR
-        hsv_enhanced = cv2.merge([h_chan, s_chan, v_sharp])
-        img_bgr_full_enhanced = cv2.cvtColor(hsv_enhanced, cv2.COLOR_HSV2BGR)
-    
-    col_raw1, col_raw2 = st.columns(2)
+    col_raw1, col_raw2 = st.columns([1, 1])
     col_raw1.image(cv2.cvtColor(img_bgr_full, cv2.COLOR_BGR2RGB), caption="1. Foto Raw (Asli)", use_column_width=True)
-    col_raw2.image(cv2.cvtColor(img_bgr_full_enhanced, cv2.COLOR_BGR2RGB), caption="2. Foto Enhanced (RGB)", use_column_width=True)
     
-    # ----------------------------------------------------
-    # DETEKSI WAJAH (Menggunakan Gambar yang sudah di-Enhance)
-    # ----------------------------------------------------
-    # Konversi gambar enhanced ke grayscale khusus untuk detector Haar
-    gray_enhanced = cv2.cvtColor(img_bgr_full_enhanced, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray_enhanced, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
+    with st.spinner("Mendeteksi wajah..."):
+        gray_full = cv2.cvtColor(img_bgr_full, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray_full, scaleFactor=1.1, minNeighbors=5, minSize=(60, 60))
     
     if len(faces) == 0:
-        st.error("🚨 Wajah tidak terdeteksi bahkan setelah di-enhance! Mohon posisikan wajah Anda lebih jelas ke arah kamera.")
+        st.error("🚨 Wajah tidak terdeteksi! Mohon posisikan wajah Anda lebih jelas ke arah kamera.")
     else:
-        # Ambil wajah terbesar (asumsi itu adalah subjek utama)
         faces = sorted(faces, key=lambda x: x[2]*x[3], reverse=True)
         x, y, w, h = faces[0]
         
-        # Tambahkan sedikit padding
         pad = int(w * 0.15)
         y1 = max(0, y - pad)
         y2 = min(img_bgr_full.shape[0], y + h + pad)
         x1 = max(0, x - pad)
         x2 = min(img_bgr_full.shape[1], x + w + pad)
         
-        # Tampilkan box deteksi di UI (pada gambar RGB Enhanced)
-        preview_img = img_bgr_full_enhanced.copy()
+        preview_img = img_bgr_full.copy()
         cv2.rectangle(preview_img, (x1, y1), (x2, y2), (0, 255, 0), 3)
         
-        st.success("✅ Wajah berhasil terdeteksi dari foto yang telah di-enhance!")
-        col_raw1.image(cv2.cvtColor(preview_img, cv2.COLOR_BGR2RGB), caption="3. Deteksi Area Wajah (Tracking)", use_column_width=True)
+        st.success("✅ Wajah berhasil terdeteksi!")
+        col_raw2.image(cv2.cvtColor(preview_img, cv2.COLOR_BGR2RGB), caption="2. Hasil Tracking Wajah", use_column_width=True)
             
         # ----------------------------------------------------
         # FASE 1: PREPROCESSING CROP WAJAH RAW
         # ----------------------------------------------------
-        # Sesuai permintaan: Crop dari gambar RAW, lalu di-enhance lagi dari awal
         img_bgr = img_bgr_full[y1:y2, x1:x2]
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     
         st.divider()
-        st.subheader("🛠️ Fase 1: Live Image Enhancement Wajah (Step-by-Step dari Scratch)")
+        st.subheader("🛠️ Fase 1: Image Enhancement Wajah (Step-by-Step dari Scratch)")
         
-        # Menampilkan grid tahapan
         col1, col2, col3, col4, col5 = st.columns(5)
         
-        # Tahap 1: Gambar Asli (Cropped)
         col1.image(img_rgb, caption="1. Original (Cropped)", use_column_width=True)
-        
-        # Tahap 2: Grayscale
         img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         col2.image(img_gray, caption="2. Grayscale", use_column_width=True, channels="GRAY")
-        
-        # Tahap 3: CLAHE (Scratch)
         img_clahe = clahe_scratch(img_gray)
         col3.image(img_clahe, caption="3. CLAHE (Kontras)", use_column_width=True, channels="GRAY")
-        
-        # Tahap 4: Gaussian Blur (Scratch)
         img_blur = gaussian_blur_scratch(img_clahe)
-        col4.image(img_blur, caption="4. Gaussian Blur (Denoise)", use_column_width=True, channels="GRAY")
-        
-        # Tahap 5: Sharpening (Scratch)
+        col4.image(img_blur, caption="4. Gaussian Blur", use_column_width=True, channels="GRAY")
         img_sharp = sharpen_scratch(img_blur)
-        col5.image(img_sharp, caption="5. Sharpening (Tajam)", use_column_width=True, channels="GRAY")
+        col5.image(img_sharp, caption="5. Sharpening", use_column_width=True, channels="GRAY")
         
         st.divider()
         st.subheader(f"🎯 2. Hasil Prediksi Model: {selected_model_name}")
@@ -187,7 +153,6 @@ if active_fijle is not None:
             
             with st.spinner("Menganalisis wajah..."):
                 if "MobileNet" in selected_model_name:
-                    # PROSES UNTUK MOBILENET
                     img_resized = cv2.resize(img_bgr, (224, 224))
                     if "Dengan Enhancement" in selected_model_name:
                         processed_input = mobilenet_prep_enhance(img_resized)
@@ -200,56 +165,59 @@ if active_fijle is not None:
                     pred_label = classes[pred_idx]
                     confidence = pred_probs[pred_idx] * 100
                 else:
-                    # PROSES UNTUK SVM
                     import joblib
                     from src.feature_engineering import extract_canny, extract_dwt
+                    from config import IMG_SIZE_SVM
                     
-                    # 1. Pilih gambar yg mau di-resize
                     if "Tanpa Enhancement" in selected_model_name:
                         img_input = img_gray
                     else:
                         img_input = img_sharp
                         
-                    # Target size SVM adalah 224x224
-                    img_resized = cv2.resize(img_input, (224, 224))
+                    img_resized = cv2.resize(img_input, IMG_SIZE_SVM)
                     
-                    # 2. Ekstrak Fitur
                     if "Canny" in selected_model_name:
                         feature = extract_canny(img_resized)
                         scaler_name = "scaler_c_enh.pkl" if "Dengan" in selected_model_name else "scaler_c_no_enh.pkl"
+                        img_feature_viz = feature.reshape(IMG_SIZE_SVM[1], IMG_SIZE_SVM[0])
                     else:
                         feature = extract_dwt(img_resized)
                         scaler_name = "scaler_d_enh.pkl" if "Dengan" in selected_model_name else "scaler_d_no_enh.pkl"
+                        img_feature_viz = feature.reshape(IMG_SIZE_SVM[1] // 2, IMG_SIZE_SVM[0] // 2)
+                        img_feature_viz = cv2.normalize(img_feature_viz, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
                     
-                    # Reshape ke 2D array untuk sklearn
                     feature = feature.reshape(1, -1)
                     
-                    # 3. Load Scaler
                     scaler_path = PROJECT_ROOT / "kaggle_env" / "models" / scaler_name
                     if not scaler_path.exists():
-                        st.error(f"⚠️ File scaler '{scaler_name}' tidak ditemukan! Anda harus menyimpan scaler dari notebook `03_training.ipynb` menggunakan `joblib.dump(scaler, 'models/{scaler_name}')` sebelum bisa melakukan prediksi live dengan SVM.")
+                        st.error(f"⚠️ File scaler '{scaler_name}' tidak ditemukan! Anda harus menyimpan scaler dari notebook `03_training.ipynb`.")
                         is_error = True
                     else:
                         scaler = joblib.load(str(scaler_path))
                         feature_scaled = scaler.transform(feature)
                         
-                        # 4. Prediksi SVM
                         pred_idx = model.predict(feature_scaled)[0]
                         pred_label = classes[pred_idx]
-                        confidence = 100.0 # SVM standar tidak memgeluarkan probabilitas
+                        confidence = 100.0
             
             if not is_error:
-                # Tampilkan Hasil Visual
-                col_res1, col_res2 = st.columns([1, 2])
+                st.subheader("🕵️ Visualisasi Proses Model")
+                col_res1, col_res2, col_res3 = st.columns([1, 1, 2])
                 
                 with col_res1:
-                    # Tampilkan versi gambar yang dikirim ke model
                     if "Tanpa Enhancement" in selected_model_name:
                         st.image(img_rgb, caption="Input (Tanpa Enhance)", use_column_width=True)
                     else:
                         st.image(img_sharp, caption="Input (Dengan Enhance)", use_column_width=True, channels="GRAY")
-                    
+                        
                 with col_res2:
+                    if "MobileNet" in selected_model_name:
+                        # For MobileNet show resized
+                        st.image(img_resized, caption="Resized ke 224x224", use_column_width=True, channels="BGR" if "Tanpa" in selected_model_name else "GRAY")
+                    else:
+                        st.image(img_feature_viz, caption="Hasil Ekstraksi Fitur", use_column_width=True, channels="GRAY")
+                    
+                with col_res3:
                     st.markdown(f"### Diagnosis Sistem:")
                     if pred_label == "WithMask":
                         st.success(f"## 😷 TERDETEKSI MEMAKAI MASKER")
@@ -260,4 +228,4 @@ if active_fijle is not None:
                         st.progress(int(confidence))
                         st.write(f"Tingkat Keyakinan Model (Confidence): **{confidence:.2f}%**")
                     else:
-                        st.write("*(Catatan: SVM menggunakan margin klasifikasi biner mutlak, sehingga tingkat keyakinan tidak direpresentasikan dalam persen)*")
+                        st.write("*(Catatan: Model SVM menggunakan margin klasifikasi biner)*")
