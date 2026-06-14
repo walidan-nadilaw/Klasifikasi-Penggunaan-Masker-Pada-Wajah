@@ -223,3 +223,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# others
+ref/
+results/
+*.pkl
+*.h5
