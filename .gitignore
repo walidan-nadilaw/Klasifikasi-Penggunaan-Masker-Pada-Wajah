@@ -227,5 +227,5 @@ __marimo__/
 # others
 ref/
 results/
-*.pkl
-*.h5
+# *.pkl
+# *.h5
