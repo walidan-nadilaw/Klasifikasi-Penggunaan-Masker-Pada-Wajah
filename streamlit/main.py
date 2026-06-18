@@ -38,6 +38,59 @@ selected_model_name = st.sidebar.selectbox(
     ]
 )
 
+# Informasi Performa Model
+model_info = {
+    "SVM - Canny (Tanpa Enhancement)": {
+        "accuracy": 97.73,
+        "with_mask": {"precision": 0.97, "recall": 0.98, "f1": 0.98},
+        "without_mask": {"precision": 0.99, "recall": 0.97, "f1": 0.98}
+    },
+    "SVM - DWT (Tanpa Enhancement)": {
+        "accuracy": 98.35,
+        "with_mask": {"precision": 0.98, "recall": 0.98, "f1": 0.98},
+        "without_mask": {"precision": 0.99, "recall": 0.98, "f1": 0.98}
+    },
+    "SVM - Canny (Dengan Enhancement)": {
+        "accuracy": 98.56,
+        "with_mask": {"precision": 0.98, "recall": 0.99, "f1": 0.98},
+        "without_mask": {"precision": 0.99, "recall": 0.98, "f1": 0.99}
+    },
+    "SVM - DWT (Dengan Enhancement)": {
+        "accuracy": 98.14,
+        "with_mask": {"precision": 0.97, "recall": 0.99, "f1": 0.98},
+        "without_mask": {"precision": 0.99, "recall": 0.97, "f1": 0.98}
+    },
+    "MobileNetV2 (Tanpa Enhancement)": {
+        "accuracy": 99.59,
+        "with_mask": {"precision": 1.00, "recall": 1.00, "f1": 1.00},
+        "without_mask": {"precision": 1.00, "recall": 1.00, "f1": 1.00}
+    },
+    "MobileNetV2 (Dengan Enhancement)": {
+        "accuracy": 99.07,
+        "with_mask": {"precision": 1.00, "recall": 0.98, "f1": 0.99},
+        "without_mask": {"precision": 0.98, "recall": 1.00, "f1": 0.99}
+    }
+}
+
+st.sidebar.divider()
+st.sidebar.header("📊 Performa Model (Testing)")
+info = model_info[selected_model_name]
+st.sidebar.metric(label="Akurasi Model", value=f"{info['accuracy']}%")
+
+st.sidebar.markdown("**Classification Report:**")
+report_md = f"""
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| **With Mask** | {info['with_mask']['precision']:.2f} | {info['with_mask']['recall']:.2f} | {info['with_mask']['f1']:.2f} |
+| **No Mask** | {info['without_mask']['precision']:.2f} | {info['without_mask']['recall']:.2f} | {info['without_mask']['f1']:.2f} |
+"""
+st.sidebar.markdown(report_md)
+
+st.sidebar.divider()
+if st.sidebar.button("🧹 Clear Model Cache", use_container_width=True, help="Bersihkan memori jika model terasa nge-bug atau tertukar."):
+    st.cache_resource.clear()
+    st.sidebar.success("Cache berhasil dibersihkan! Silakan prediksi ulang.")
+
 @st.cache_resource
 def load_classification_model(model_name):
     """Meload model Deep Learning atau Machine Learning yang sudah ditraining."""
@@ -177,14 +230,13 @@ if active_file is not None:
                     img_resized = cv2.resize(img_input, IMG_SIZE_SVM)
                     
                     if "Canny" in selected_model_name:
-                        feature = extract_canny(img_resized)
+                        feature, hog_viz, edges_viz = extract_canny(img_resized, return_viz=True)
                         scaler_name = "scaler_c_enh.pkl" if "Dengan" in selected_model_name else "scaler_c_no_enh.pkl"
-                        img_feature_viz = feature.reshape(IMG_SIZE_SVM[1], IMG_SIZE_SVM[0])
+                        img_feature_viz = edges_viz # Tampilkan hasil deteksi tepi (potongan bawah wajah)
                     else:
-                        feature = extract_dwt(img_resized)
+                        feature, hog_viz, edges_viz = extract_dwt(img_resized, return_viz=True)
                         scaler_name = "scaler_d_enh.pkl" if "Dengan" in selected_model_name else "scaler_d_no_enh.pkl"
-                        img_feature_viz = feature.reshape(IMG_SIZE_SVM[1] // 2, IMG_SIZE_SVM[0] // 2)
-                        img_feature_viz = cv2.normalize(img_feature_viz, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                        img_feature_viz = edges_viz # Tampilkan hasil Peta Tepi DWT (LH + HL)
                     
                     feature = feature.reshape(1, -1)
                     

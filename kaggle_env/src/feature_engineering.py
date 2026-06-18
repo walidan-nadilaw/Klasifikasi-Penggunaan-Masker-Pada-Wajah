@@ -6,14 +6,50 @@ from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 from config import *
 
-def extract_canny(img):
-    edges = cv2.Canny(img, 100, 200)
-    return edges.flatten()
+from skimage.feature import hog
 
-def extract_dwt(img):
-    coeffs = pywt.dwt2(img, 'haar')
+def extract_canny(img, return_viz=False):
+    # 1. Fokus pada area bawah wajah (mulai dari 40% tinggi gambar ke bawah)
+    h, w = img.shape
+    start_h = int(h * 0.4)
+    lower_half = img[start_h:, :]
+    
+    # 2. Deteksi tepi menggunakan Canny
+    edges = cv2.Canny(lower_half, 100, 200)
+    
+    # 3. Ekstraksi HOG dari peta tepi (Edge Map)
+    if return_viz:
+        features, hog_image = hog(edges, orientations=9, pixels_per_cell=(8, 8),
+                                  cells_per_block=(2, 2), visualize=True)
+        return features, hog_image, edges
+    else:
+        features = hog(edges, orientations=9, pixels_per_cell=(8, 8),
+                       cells_per_block=(2, 2), visualize=False)
+        return features
+
+def extract_dwt(img, return_viz=False):
+    # 1. Fokus pada area bawah wajah
+    h, w = img.shape
+    start_h = int(h * 0.4)
+    lower_half = img[start_h:, :]
+    
+    # 2. DWT Transform
+    coeffs = pywt.dwt2(lower_half, 'haar')
     LL, (LH, HL, HH) = coeffs
-    return LL.flatten()
+    
+    # 3. Menggabungkan energi dari sub-band frekuensi tinggi (Horizontal & Vertikal)
+    edge_map = np.sqrt(LH**2 + HL**2)
+    edge_map_normalized = cv2.normalize(edge_map, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    
+    # 4. Ekstraksi HOG dari peta tepi DWT agar Apple-to-Apple dengan Canny dan mencegah overfitting
+    if return_viz:
+        features, hog_image = hog(edge_map_normalized, orientations=9, pixels_per_cell=(8, 8),
+                                  cells_per_block=(2, 2), visualize=True)
+        return features, hog_image, edge_map_normalized
+    else:
+        features = hog(edge_map_normalized, orientations=9, pixels_per_cell=(8, 8),
+                       cells_per_block=(2, 2), visualize=False)
+        return features
 
 def load_and_extract_features(root_dir, require_preprocess=False):
     X_canny_list, X_dwt_list, y_list = [], [], []

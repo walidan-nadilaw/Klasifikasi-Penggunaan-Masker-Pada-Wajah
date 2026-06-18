@@ -10,3 +10,4 @@ kagglehub
 tqdm
 joblib
 streamlit
+scikit-image
