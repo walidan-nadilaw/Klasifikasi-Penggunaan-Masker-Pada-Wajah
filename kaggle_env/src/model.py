@@ -1,11 +1,22 @@
+import numpy as np
 from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import StackingClassifier
+from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 
 def build_svm_model():
-    return SVC(kernel='rbf')
+    clf = SVC()
+    param_grid = [
+        {'kernel': ['linear'], 'C': [0.1, 1.0, 10.0]},
+        {'kernel': ['rbf'], 'C': [0.1, 1.0, 10.0], 'gamma': ['scale', 'auto', 0.01]}
+    ]
+    
+    return GridSearchCV(clf, param_grid, cv=3, n_jobs=-1, verbose=2)
 
 def build_mobilenet_model(num_classes=2):
     base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
